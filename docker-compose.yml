@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8889:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  discovery-service:
+    build: discovery-service/
+    restart: always
+
+  auth-service:
+    depends_on:
+      - discovery-service
+      - db
+    build: ./auth-service/
+    restart: always
+
+  product-service:
+    depends_on:
+      - discovery-service
+      - db
+    build: ./product-service/
+    restart: always
+
+  stock-service:
+    depends_on:
+      - discovery-service
+      - db
+    build: ./stock-service/
+    restart: always
+
+  gateway-service:
+    depends_on:
+      - discovery-service
+      - db
+    build: ./gateway-service/
+    restart: always
+
+volumes:
+  mysql_data:
