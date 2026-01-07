@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stock-service
+spec:
+  ports:
+  - port: 9092
+    targetPort: 9092
+  selector:
+    app: stock-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stock-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stock-service
+  template:
+    metadata:
+      labels:
+        app: stock-service
+    spec:
+      containers:
+      - name: stock-service
+        image: tbg101/stock-service:latest
+        ports:
+        - containerPort: 9092
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:mysql://db:3306/stock-service?createDatabaseIfNotExist=true
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://discovery-service:8761/eureka/
+        imagePullPolicy: IfNotPresent

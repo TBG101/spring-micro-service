@@ -12,6 +12,8 @@ services:
   discovery-service:
     build: discovery-service/
     restart: always
+    ports:
+      - "8761:8761"
 
   auth-service:
     depends_on:
@@ -19,6 +21,9 @@ services:
       - db
     build: ./auth-service/
     restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/auth-service?createDatabaseIfNotExist=true
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
 
   product-service:
     depends_on:
@@ -26,6 +31,9 @@ services:
       - db
     build: ./product-service/
     restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/product-service?createDatabaseIfNotExist=true
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
 
   stock-service:
     depends_on:
@@ -33,13 +41,19 @@ services:
       - db
     build: ./stock-service/
     restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/stock-service?createDatabaseIfNotExist=true
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
 
   gateway-service:
     depends_on:
       - discovery-service
-      - db
     build: ./gateway-service/
     restart: always
+    ports:
+      - "8888:8888"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
 
 volumes:
   mysql_data:

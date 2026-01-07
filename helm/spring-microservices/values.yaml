@@ -1,0 +1,9 @@
+replicaCount: 1
+
+image:
+  repository: tbg101
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+mysql:
+  rootPassword: root

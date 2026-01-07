@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: spring-microservices
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/TBG101/spring-micro-service.git
+    targetRevision: HEAD
+    path: helm/spring-microservices
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
