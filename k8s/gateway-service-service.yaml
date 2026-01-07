@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: default
+spec:
+  selector:
+    app: gateway-service
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  # For Docker Desktop: Uncomment and use NodePort
+  type: NodePort
+  # nodePort: 30001
+  
+  # For Minikube: Uncomment and use LoadBalancer
+  # type: LoadBalancer

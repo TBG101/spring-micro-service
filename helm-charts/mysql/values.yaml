@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  repository: mysql
+  tag: "8.4"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3306
+  targetPort: 3306
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+env:
+  - name: MYSQL_ROOT_PASSWORD
+    value: "root"
+  - name: MYSQL_DATABASE
+    value: "exam_db"
+
+persistence:
+  enabled: false
+  size: 10Gi
+  storageClassName: ""

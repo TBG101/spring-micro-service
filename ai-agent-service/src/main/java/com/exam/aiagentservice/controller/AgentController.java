@@ -13,8 +13,8 @@ import reactor.core.publisher.Flux;
 public class AgentController {
     private final ChatClient chatClient;
 
-    public AgentController(ChatClient.Builder builder, ChatMemory chatMemory, SyncMcpToolCallbackProvider toolProvider) { // Inject tools [cite: 325]
-        this.chatClient = builder.defaultSystem("You are a helpful assistant. Use the available tools to answer questions about products and stock.").defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build()).defaultToolCallbacks(toolProvider) // Register the tools [cite: 335]
+    public AgentController(ChatClient.Builder builder, ChatMemory chatMemory, SyncMcpToolCallbackProvider toolProvider) {
+        this.chatClient = builder.defaultSystem("You are a helpful assistant. Use the available tools to answer questions about products and stock.").defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build()).defaultToolCallbacks(toolProvider)
                 .build();
     }
 

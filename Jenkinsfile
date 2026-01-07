@@ -1,306 +1,282 @@
 pipeline {
     agent any
 
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 1, unit: 'HOURS')
-        timestamps()
+    triggers {
+        pollSCM('H/5 * * * *')
     }
 
     environment {
-        // Docker Hub credentials (configure in Jenkins: Manage Jenkins > Credentials)
-        DOCKER_HUB_REGISTRY = 'docker.io'
-        DOCKER_HUB_USERNAME = credentials('docker-hub-username')
-        DOCKER_HUB_PASSWORD = credentials('docker-hub-password')
-        
-        // Image configuration
-        REGISTRY_URL = 'docker.io'
-        IMAGE_PREFIX = "${DOCKER_HUB_USERNAME}"
-        BUILD_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
-        LATEST_TAG = 'latest'
-        
-        // Trivy configuration
-        TRIVY_SEVERITY = 'HIGH,CRITICAL'
-        TRIVY_EXIT_CODE = '0'
-        
-        // Services to build
-        SERVICES = 'auth-service,discovery-service,gateway-service,product-service,stock-service'
+        IMAGE_AUTH = 'tbg101/auth-service'
+        IMAGE_DISCOVERY = 'tbg101/discovery-service'
+        IMAGE_GATEWAY = 'tbg101/gateway-service'
+        IMAGE_PRODUCT = 'tbg101/product-service'
+        IMAGE_STOCK = 'tbg101/stock-service'
+        GIT_REPO = 'git@gitlab.com/yourgroup/yourrepo.git' // ToChange - Update with your GitLab repo
+        DOCKER_USERNAME = 'tbg101'
+        HELM_NAMESPACE = 'default'
+        KUBE_CONTEXT = 'minikube'  // Change if using different K8s context
     }
 
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    echo "Checking out source code..."
-                    checkout scm
-                    echo "Git Commit: ${GIT_COMMIT}"
-                    echo "Git Branch: ${GIT_BRANCH}"
-                }
+                git branch: 'main',
+                    url: '${GIT_REPO}',
+                    credentialsId: 'gitlab_ssh' // ToChange
             }
         }
 
-        stage('Pre-build Validation') {
+        stage('Build + Push AUTH-SERVICE') {
+            when {
+                changeset 'auth-service/**'
+            }
             steps {
-                script {
-                    echo "Validating environment and dependencies..."
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_PASS'
+                )]) {
                     sh '''
-                        echo "Docker version:"
-                        docker --version
-                        echo "Trivy version:"
-                        trivy --version || echo "Trivy not installed, will be used via Docker"
-                        echo "Jenkins workspace: ${WORKSPACE}"
+                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                        docker build -t $IMAGE_AUTH:${BUILD_NUMBER} auth-service
+                        docker push $IMAGE_AUTH:${BUILD_NUMBER}
                     '''
                 }
             }
         }
 
-        stage('Build Docker Images') {
-            parallel {
-                stage('Build Auth Service') {
-                    steps {
-                        script {
-                            buildService('auth-service')
-                        }
-                    }
-                }
-                stage('Build Discovery Service') {
-                    steps {
-                        script {
-                            buildService('discovery-service')
-                        }
-                    }
-                }
-                stage('Build Gateway Service') {
-                    steps {
-                        script {
-                            buildService('gateway-service')
-                        }
-                    }
-                }
-                stage('Build Product Service') {
-                    steps {
-                        script {
-                            buildService('product-service')
-                        }
-                    }
-                }
-                stage('Build Stock Service') {
-                    steps {
-                        script {
-                            buildService('stock-service')
-                        }
-                    }
-                }
+        stage('Build + Push DISCOVERY-SERVICE') {
+            when {
+                changeset 'discovery-service/**'
             }
-        }
-
-        stage('Security Scan with Trivy') {
-            parallel {
-                stage('Scan Auth Service') {
-                    steps {
-                        script {
-                            scanImage('auth-service')
-                        }
-                    }
-                }
-                stage('Scan Discovery Service') {
-                    steps {
-                        script {
-                            scanImage('discovery-service')
-                        }
-                    }
-                }
-                stage('Scan Gateway Service') {
-                    steps {
-                        script {
-                            scanImage('gateway-service')
-                        }
-                    }
-                }
-                stage('Scan Product Service') {
-                    steps {
-                        script {
-                            scanImage('product-service')
-                        }
-                    }
-                }
-                stage('Scan Stock Service') {
-                    steps {
-                        script {
-                            scanImage('stock-service')
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Login to Docker Hub') {
             steps {
-                script {
-                    echo "Logging in to Docker Hub..."
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_PASS'
+                )]) {
                     sh '''
-                        echo "${DOCKER_HUB_PASSWORD}" | docker login -u "${DOCKER_HUB_USERNAME}" --password-stdin ${DOCKER_HUB_REGISTRY}
-                        echo "Successfully authenticated with Docker Hub"
+                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                        docker build -t $IMAGE_DISCOVERY:${BUILD_NUMBER} discovery-service
+                        docker push $IMAGE_DISCOVERY:${BUILD_NUMBER}
                     '''
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
-            parallel {
-                stage('Push Auth Service') {
-                    steps {
-                        script {
-                            pushImage('auth-service')
-                        }
-                    }
-                }
-                stage('Push Discovery Service') {
-                    steps {
-                        script {
-                            pushImage('discovery-service')
-                        }
-                    }
-                }
-                stage('Push Gateway Service') {
-                    steps {
-                        script {
-                            pushImage('gateway-service')
-                        }
-                    }
-                }
-                stage('Push Product Service') {
-                    steps {
-                        script {
-                            pushImage('product-service')
-                        }
-                    }
-                }
-                stage('Push Stock Service') {
-                    steps {
-                        script {
-                            pushImage('stock-service')
-                        }
-                    }
+        stage('Build + Push GATEWAY-SERVICE') {
+            when {
+                changeset 'gateway-service/**'
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_PASS'
+                )]) {
+                    sh '''
+                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                        docker build -t $IMAGE_GATEWAY:${BUILD_NUMBER} gateway-service
+                        docker push $IMAGE_GATEWAY:${BUILD_NUMBER}
+                    '''
                 }
             }
         }
 
-        stage('Generate Scan Reports') {
+        stage('Build + Push PRODUCT-SERVICE') {
+            when {
+                changeset 'product-service/**'
+            }
             steps {
-                script {
-                    echo "Generating Trivy scan reports..."
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_PASS'
+                )]) {
                     sh '''
-                        mkdir -p ${WORKSPACE}/trivy-reports
-                        for service in ${SERVICES//,/ }; do
-                            if [ -f "${WORKSPACE}/trivy-${service}.json" ]; then
-                                cp "${WORKSPACE}/trivy-${service}.json" "${WORKSPACE}/trivy-reports/"
-                                echo "Generated report for ${service}"
-                            fi
-                        done
+                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                        docker build -t $IMAGE_PRODUCT:${BUILD_NUMBER} product-service
+                        docker push $IMAGE_PRODUCT:${BUILD_NUMBER}
                     '''
                 }
+            }
+        }
+
+        stage('Build + Push STOCK-SERVICE') {
+            when {
+                changeset 'stock-service/**'
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_PASS'
+                )]) {
+                    sh '''
+                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                        docker build -t $IMAGE_STOCK:${BUILD_NUMBER} stock-service
+                        docker push $IMAGE_STOCK:${BUILD_NUMBER}
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Database') {
+            when {
+                anyOf {
+                    changeset 'helm-charts/mysql/**'
+                    expression { currentBuild.number == 1 }
+                }
+            }
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    helm upgrade --install exam-mysql helm-charts/mysql/ \
+                        --namespace $HELM_NAMESPACE \
+                        --wait \
+                        --timeout 5m
+                    echo "✓ MySQL deployed"
+                '''
+            }
+        }
+
+        stage('Deploy Discovery Service') {
+            when {
+                anyOf {
+                    changeset 'discovery-service/**'
+                    changeset 'helm-charts/discovery-service/**'
+                }
+            }
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    helm upgrade --install exam-discovery helm-charts/discovery-service/ \
+                        --namespace $HELM_NAMESPACE \
+                        --set image.tag=${BUILD_NUMBER} \
+                        --wait \
+                        --timeout 5m
+                    echo "✓ Discovery Service deployed"
+                '''
+            }
+        }
+
+        stage('Deploy Auth Service') {
+            when {
+                anyOf {
+                    changeset 'auth-service/**'
+                    changeset 'helm-charts/auth-service/**'
+                }
+            }
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    helm upgrade --install exam-auth helm-charts/auth-service/ \
+                        --namespace $HELM_NAMESPACE \
+                        --set image.tag=${BUILD_NUMBER} \
+                        --wait \
+                        --timeout 5m
+                    echo "✓ Auth Service deployed"
+                '''
+            }
+        }
+
+        stage('Deploy Gateway Service') {
+            when {
+                anyOf {
+                    changeset 'gateway-service/**'
+                    changeset 'helm-charts/gateway-service/**'
+                }
+            }
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    helm upgrade --install exam-gateway helm-charts/gateway-service/ \
+                        --namespace $HELM_NAMESPACE \
+                        --set image.tag=${BUILD_NUMBER} \
+                        --wait \
+                        --timeout 5m
+                    echo "✓ Gateway Service deployed"
+                '''
+            }
+        }
+
+        stage('Deploy Product Service') {
+            when {
+                anyOf {
+                    changeset 'product-service/**'
+                    changeset 'helm-charts/product-service/**'
+                }
+            }
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    helm upgrade --install exam-product helm-charts/product-service/ \
+                        --namespace $HELM_NAMESPACE \
+                        --set image.tag=${BUILD_NUMBER} \
+                        --wait \
+                        --timeout 5m
+                    echo "✓ Product Service deployed"
+                '''
+            }
+        }
+
+        stage('Deploy Stock Service') {
+            when {
+                anyOf {
+                    changeset 'stock-service/**'
+                    changeset 'helm-charts/stock-service/**'
+                }
+            }
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    helm upgrade --install exam-stock helm-charts/stock-service/ \
+                        --namespace $HELM_NAMESPACE \
+                        --set image.tag=${BUILD_NUMBER} \
+                        --wait \
+                        --timeout 5m
+                    echo "✓ Stock Service deployed"
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    kubectl config use-context $KUBE_CONTEXT
+                    echo "=== Helm Releases ==="
+                    helm list -n $HELM_NAMESPACE
+                    echo ""
+                    echo "=== Kubernetes Pods ==="
+                    kubectl get pods -n $HELM_NAMESPACE
+                    echo ""
+                    echo "=== Service Status ==="
+                    kubectl get svc -n $HELM_NAMESPACE
+                '''
+            }
+        }
+
+        stage('Trigger ArgoCD Sync (Optional)') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh '''
+                    # Optional: Trigger ArgoCD to sync if installed
+                    if kubectl get namespace argocd 2>/dev/null; then
+                        argocd app sync exam-app --prune || true
+                        echo "✓ ArgoCD sync triggered"
+                    else
+                        echo "ℹ ArgoCD not installed, skipping sync"
+                    fi
+                '''
             }
         }
     }
 
     post {
         always {
-            script {
-                echo "Performing cleanup..."
-                sh '''
-                    # Logout from Docker Hub
-                    docker logout ${DOCKER_HUB_REGISTRY} || true
-                    
-                    # Clean up dangling images
-                    docker image prune -f || true
-                '''
-                
-                // Archive Trivy reports
-                archiveArtifacts artifacts: 'trivy-reports/*.json', allowEmptyArchive: true
-            }
-        }
-
-        success {
-            script {
-                echo "Build completed successfully!"
-                // Send success notification (configure as needed)
-                sh '''
-                    echo "All services built, scanned, and pushed successfully!"
-                    echo "Images are available at: ${REGISTRY_URL}/${IMAGE_PREFIX}/<service>:${BUILD_TAG}"
-                    echo "Images are available at: ${REGISTRY_URL}/${IMAGE_PREFIX}/<service>:${LATEST_TAG}"
-                '''
-            }
-        }
-
-        failure {
-            script {
-                echo "Build failed! Check logs for details."
-                // Send failure notification (configure as needed)
-            }
-        }
-
-        unstable {
-            script {
-                echo "Build is unstable. Review Trivy scan results."
-            }
-        }
-
-        cleanup {
-            deleteDir()
+            sh 'docker system prune -af || true'
         }
     }
-}
-
-// Function to build Docker image for a service
-def buildService(String serviceName) {
-    echo "Building Docker image for ${serviceName}..."
-    sh '''
-        cd ${WORKSPACE}/${serviceName}
-        docker build \
-            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-            --build-arg VCS_REF=${GIT_COMMIT} \
-            --build-arg VERSION=${BUILD_TAG} \
-            -t ${REGISTRY_URL}/${IMAGE_PREFIX}/${serviceName}:${BUILD_TAG} \
-            -t ${REGISTRY_URL}/${IMAGE_PREFIX}/${serviceName}:${LATEST_TAG} \
-            -f Dockerfile .
-        echo "Successfully built ${serviceName}:${BUILD_TAG}"
-    '''
-}
-
-// Function to scan image with Trivy
-def scanImage(String serviceName) {
-    echo "Scanning ${serviceName} with Trivy..."
-    sh '''
-        docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v ${WORKSPACE}/trivy-reports:/root/.cache/trivy \
-            aquasec/trivy:latest image \
-            --severity ${TRIVY_SEVERITY} \
-            --format json \
-            --output ${WORKSPACE}/trivy-${serviceName}.json \
-            ${REGISTRY_URL}/${IMAGE_PREFIX}/${serviceName}:${BUILD_TAG}
-        
-        # Display scan results
-        echo "=== Scan results for ${serviceName} ==="
-        docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest image \
-            --severity ${TRIVY_SEVERITY} \
-            ${REGISTRY_URL}/${IMAGE_PREFIX}/${serviceName}:${BUILD_TAG}
-    '''
-}
-
-// Function to push image to Docker Hub
-def pushImage(String serviceName) {
-    echo "Pushing ${serviceName} to Docker Hub..."
-    sh '''
-        echo "Pushing ${serviceName}:${BUILD_TAG}..."
-        docker push ${REGISTRY_URL}/${IMAGE_PREFIX}/${serviceName}:${BUILD_TAG}
-        
-        echo "Pushing ${serviceName}:${LATEST_TAG}..."
-        docker push ${REGISTRY_URL}/${IMAGE_PREFIX}/${serviceName}:${LATEST_TAG}
-        
-        echo "Successfully pushed ${serviceName} to Docker Hub"
-    '''
 }

@@ -42,10 +42,13 @@ public class JwtAuthenticationFilter implements WebFilter {
             // 4. Create Authentication object
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
+            var authorities = jwtTokenProvider.getAuthoritiesFromToken(token);
+
             // new request
             ServerHttpRequest mutatedRequest = exchange.getRequest()
                     .mutate()
                     .header("X-Authenticated-User", username)
+                    .header("X-Roles", String.valueOf(authorities))
                     .build();
 
             ServerWebExchange mutatedExchange = exchange
