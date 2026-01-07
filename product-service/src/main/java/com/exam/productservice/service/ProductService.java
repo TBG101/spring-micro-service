@@ -2,6 +2,7 @@ package com.exam.productservice.service;
 
 import com.exam.productservice.entities.Product;
 import com.exam.productservice.feign.StockClient;
+import com.exam.productservice.model.Stock;
 import com.exam.productservice.repository.ProductRepository;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
@@ -45,5 +46,26 @@ public class ProductService {
                     .build());
         }
         return product;
+    }
+
+    public Product saveProduct(Product product, int quantity) {
+        Product savedProduct = productRepository.save(product);
+        try {
+            Stock stock = Stock.builder()
+                    .id(savedProduct.getId())
+                    .quantity(quantity)
+                    .build();
+            Stock createdStock = stockClient.createStock(stock);
+            savedProduct.setStock(createdStock);
+            savedProduct.setStockId(createdStock.getId());
+            productRepository.save(savedProduct);
+        } catch (Exception e) {
+            System.err.println("Failed to create stock for product " + savedProduct.getId() + ": " + e.getMessage());
+            savedProduct.setStock(Stock.builder()
+                    .id(savedProduct.getId())
+                    .quantity(quantity)
+                    .build());
+        }
+        return savedProduct;
     }
 }

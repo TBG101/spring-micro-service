@@ -25,4 +25,8 @@ public class StockService {
     public Stock findStockByProductId(Long productId) {
         return stockRepository.findByProductId(productId);
     }
+
+    public Stock saveStock(Stock stock) {
+        return stockRepository.save(stock);
+    }
 }

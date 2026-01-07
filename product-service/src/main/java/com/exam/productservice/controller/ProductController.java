@@ -1,12 +1,10 @@
 package com.exam.productservice.controller;
 
+import com.exam.productservice.dto.ProductRequest;
 import com.exam.productservice.entities.Product;
 import com.exam.productservice.service.ProductService;
 import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -27,4 +25,8 @@ public class ProductController {
         return productService.getProductById(id);
     }
 
+    @PostMapping()
+    public Product createProduct(@RequestBody ProductRequest request) {
+        return productService.saveProduct(request.getProduct(), request.getQuantity());
+    }
 }

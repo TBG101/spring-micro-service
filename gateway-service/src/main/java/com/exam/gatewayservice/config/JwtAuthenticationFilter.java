@@ -42,6 +42,17 @@ public class JwtAuthenticationFilter implements WebFilter {
             // 4. Create Authentication object
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
+            // new request
+            ServerHttpRequest mutatedRequest = exchange.getRequest()
+                    .mutate()
+                    .header("X-Authenticated-User", username)
+                    .build();
+
+            ServerWebExchange mutatedExchange = exchange
+                    .mutate()
+                    .request(mutatedRequest)
+                    .build();
+
             // 5. Pass to chain WITH Security Context
             return chain.filter(exchange).contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
         }
